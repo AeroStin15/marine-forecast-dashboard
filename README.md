@@ -37,3 +37,10 @@ Open that URL from your phone. In Safari or Chrome, use "Add to Home Screen" to 
 - If a live wave source fails, that panel falls back to demo wave data so the dashboard still opens.
 - If wind is unavailable, wind columns show blanks and the rating falls back to wave/period/spread logic.
 - This is for planning/awareness only. Do not use it as a substitute for official marine warnings, navigation tools, or judgment on the water.
+
+
+## v4 update
+
+- Added sticky table headers so column names stay visible while scrolling through the full forecast.
+- Added a sticky Time column so the hour stays visible when horizontally scrolling on a phone.
+- The combined average table now scrolls inside its own panel instead of forcing you to scroll the whole page back and forth.

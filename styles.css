@@ -41,12 +41,18 @@ h2 { margin: 22px 0 12px; }
 .error { color: var(--fair); font-size: 0.86rem; margin: 8px 0; }
 .average-card { margin-top: 24px; padding: 16px; }
 .section-title { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
-.table-wrap { overflow-x: auto; border-radius: 12px; border: 1px solid var(--border); }
+.table-wrap { overflow: auto; max-height: min(72vh, 760px); border-radius: 12px; border: 1px solid var(--border); position: relative; }
 table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 th, td { padding: 9px 10px; border-bottom: 1px solid var(--border); text-align: right; white-space: nowrap; }
 th:first-child, td:first-child { text-align: left; }
-th { background: var(--card2); color: var(--muted); font-weight: 700; position: sticky; top: 0; }
+th { background: var(--card2); color: var(--muted); font-weight: 700; position: sticky; top: 0; z-index: 3; }
+th:first-child, td:first-child { position: sticky; left: 0; z-index: 2; box-shadow: 1px 0 0 var(--border); }
+th:first-child { background: var(--card2); z-index: 4; }
+td:first-child { background: var(--card); }
 tr:hover td { background: rgba(255,255,255,0.035); }
+tr:hover td:first-child { background: #132e46; }
+.source-card .table-wrap { max-height: 420px; }
+.average-card .table-wrap { max-height: 74vh; }
 .badge, .mini { display: inline-block; padding: 4px 9px; border-radius: 999px; font-weight: 800; font-size: 0.8rem; color: #061522; }
 .badge.good, .mini.good { background: var(--good); }
 .badge.fair, .mini.fair { background: var(--fair); }
@@ -61,4 +67,5 @@ tr:hover td { background: rgba(255,255,255,0.035); }
   input { width: 100%; min-width: 0; }
   table { font-size: 0.82rem; }
   th, td { padding: 8px 8px; }
+  .average-card .table-wrap { max-height: 76vh; }
 }
