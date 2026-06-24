@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Marine Forecast Consensus Dashboard</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Marine Forecast Consensus Dashboard</h1>
+      <p>Compare three marine model datasets, add wind in mph when available, and average the matching hourly wave data. Runs in your browser, including on your phone.</p>
+    </div>
+  </header>
+
+  <main>
+    <section class="controls card">
+      <label>
+        Latitude
+        <input id="lat" type="number" step="0.0001" value="29.43" />
+      </label>
+      <label>
+        Longitude
+        <input id="lon" type="number" step="0.0001" value="-88.43" />
+      </label>
+      <label>
+        Forecast days
+        <input id="days" type="number" min="1" max="8" value="4" />
+      </label>
+      <label class="checkbox">
+        <input id="demo" type="checkbox" />
+        Demo mode
+      </label>
+      <button id="refresh">Refresh Forecast</button>
+    </section>
+
+    <section class="quick-locations card">
+      <strong>Quick spots:</strong>
+      <button class="ghost" data-lat="30.213" data-lon="-88.970">MS Sound / Ship Island</button>
+      <button class="ghost" data-lat="30.130" data-lon="-88.950">South of Ship Island / Chandeleur Run</button>
+      <button class="ghost" data-lat="29.430" data-lon="-88.430">FH13 Area</button>
+      <button class="ghost" data-lat="29.083" data-lon="-89.250">Venice / Rigs</button>
+    </section>
+
+    <section class="card rules">
+      <strong>Rating logic:</strong>
+      Under 2 ft is usually <span class="mini good">Good</span> or <span class="mini fair">Fair</span>. It only gets <span class="mini caution">Caution</span> under 2 ft when the average period is under 5 seconds, sustained wind is around 15+ mph, gusts are around 22+ mph, or model disagreement is unusually bad.
+    </section>
+
+    <section id="status" class="status"></section>
+
+    <section>
+      <h2>Source Forecasts</h2>
+      <div id="sources" class="source-grid"></div>
+    </section>
+
+    <section class="card average-card">
+      <div class="section-title">
+        <div>
+          <h2>Combined Average</h2>
+          <p>Average of all available wave source values for each matching hour, with wind added in mph when available.</p>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table id="average-table"></table>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
