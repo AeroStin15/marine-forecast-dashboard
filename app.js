@@ -1,6 +1,7 @@
 const OPEN_METEO_MARINE_URL = "https://marine-api.open-meteo.com/v1/marine";
 const OPEN_METEO_FORECAST_URL = "https://api.open-meteo.com/v1/forecast";
 const MAX_SOURCE_ROWS = 24;
+let lastAverageRows = [];
 
 const sources = [
   {
@@ -53,6 +54,7 @@ const sourceColumns = [
 
 const averageColumns = [
   ["time", "Time"],
+  ["trip_phase", "Trip"],
   ["planning_wave_height", "Planning ft"],
   ["wave_height", "Avg wave ft"],
   ["highest_model_wave", "High model ft"],
@@ -164,14 +166,17 @@ function badge(value) {
   return `<span class="badge ${cls}">${value}</span>`;
 }
 
-function makeTable(rows, columns) {
+function makeTable(rows, columns, rowClassFn = null) {
   const head = `<thead><tr>${columns.map(([, label]) => `<th>${label}</th>`).join("")}</tr></thead>`;
-  const body = `<tbody>${rows.map(row => `
-    <tr>${columns.map(([key]) => {
+  const body = `<tbody>${rows.map(row => {
+    const rowClass = rowClassFn ? rowClassFn(row) : "";
+    return `
+    <tr class="${rowClass}">${columns.map(([key]) => {
       const value = row[key];
       const shown = key === "rating" ? badge(value) : fmt(value, key);
       return `<td>${shown}</td>`;
-    }).join("")}</tr>`).join("")}</tbody>`;
+    }).join("")}</tr>`;
+  }).join("")}</tbody>`;
   return head + body;
 }
 
@@ -331,6 +336,126 @@ function buildAverage(sourceResults, windByTime) {
   });
 }
 
+
+function getSelectedSpotName(lat, lon) {
+  return localStorage.getItem("marineDashboardSpotName") || `${lat}, ${lon}`;
+}
+
+function setDefaultTripDate() {
+  const dateInput = document.getElementById("trip-date");
+  if (!dateInput || dateInput.value) return;
+  const d = new Date();
+  const pad = n => String(n).padStart(2, "0");
+  dateInput.value = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+
+function tripDateTime(date, time) {
+  if (!date || !time) return null;
+  return `${date}T${time.slice(0,2)}:00`;
+}
+
+function getTripWindows() {
+  const date = document.getElementById("trip-date")?.value;
+  const leave = document.getElementById("trip-leave")?.value || "05:00";
+  const fish = document.getElementById("trip-fish-start")?.value || "07:00";
+  const retStart = document.getElementById("trip-return-start")?.value || "14:00";
+  const retEnd = document.getElementById("trip-return-end")?.value || "16:00";
+  if (!date) return null;
+  return {
+    runOutStart: tripDateTime(date, leave),
+    runOutEnd: tripDateTime(date, fish),
+    fishStart: tripDateTime(date, fish),
+    fishEnd: tripDateTime(date, retStart),
+    returnStart: tripDateTime(date, retStart),
+    returnEnd: tripDateTime(date, retEnd),
+  };
+}
+
+function phaseForTime(time) {
+  const w = getTripWindows();
+  if (!w) return "";
+  if (time >= w.runOutStart && time < w.runOutEnd) return "Run out";
+  if (time >= w.fishStart && time < w.fishEnd) return "Fishing";
+  if (time >= w.returnStart && time <= w.returnEnd) return "Return";
+  return "";
+}
+
+function enrichTripPhases(rows) {
+  return rows.map(row => ({ ...row, trip_phase: phaseForTime(row.time) }));
+}
+
+function worstRating(rows) {
+  const order = { "Good": 1, "Fair": 2, "Caution": 3, "No-Go": 4, "Unknown": 0 };
+  return rows.reduce((worst, row) => (order[row.rating] || 0) > (order[worst] || 0) ? row.rating : worst, "Unknown");
+}
+
+function summarizeRows(rows) {
+  if (!rows.length) return null;
+  const nums = (key) => rows.map(r => safeNumber(r[key])).filter(v => v !== null);
+  const max = (key) => nums(key).length ? Math.max(...nums(key)) : null;
+  const min = (key) => nums(key).length ? Math.min(...nums(key)) : null;
+  return {
+    count: rows.length,
+    wave: roundOrNull(max("planning_wave_height"), 1),
+    period: roundOrNull(min("planning_period"), 1),
+    wind: roundOrNull(max("wind_speed_10m"), 1),
+    gust: roundOrNull(max("wind_gusts_10m"), 1),
+    rating: worstRating(rows),
+  };
+}
+
+function renderTripSummary(rows) {
+  const el = document.getElementById("trip-summary");
+  if (!el) return;
+  const groups = ["Run out", "Fishing", "Return"].map(phase => [phase, rows.filter(r => r.trip_phase === phase)]);
+  if (!groups.some(([, r]) => r.length)) {
+    el.innerHTML = `<p class="note">Pick a trip date/time and press Apply Trip. Matching hours will be highlighted in the combined table.</p>`;
+    return;
+  }
+  el.innerHTML = `<div class="trip-grid">${groups.map(([phase, phaseRows]) => {
+    const s = summarizeRows(phaseRows);
+    if (!s) return `<div><strong>${phase}</strong><span>No matching forecast hours</span></div>`;
+    return `<div><strong>${phase}</strong><span>${badge(s.rating)}</span><span>Worst/planning: ${fmt(s.wave)} ft @ ${fmt(s.period)} sec</span><span>Wind: ${fmt(s.wind)} mph / gust ${fmt(s.gust)} mph</span></div>`;
+  }).join("")}</div>`;
+}
+
+function renderHero(rows, lat, lon) {
+  const name = getSelectedSpotName(lat, lon);
+  const heroSpot = document.getElementById("hero-spot");
+  const heroRating = document.getElementById("hero-rating");
+  const heroDetails = document.getElementById("hero-details");
+  const heroMetrics = document.getElementById("hero-metrics");
+  if (!heroSpot || !heroRating || !heroDetails || !heroMetrics) return;
+  const nowKey = toLocalKey(new Date());
+  const row = rows.find(r => r.time >= nowKey) || rows[0];
+  heroSpot.textContent = name;
+  if (!row) {
+    heroRating.innerHTML = badge("Unknown");
+    heroDetails.textContent = "No forecast rows available yet.";
+    heroMetrics.innerHTML = "";
+    return;
+  }
+  heroRating.innerHTML = badge(row.rating);
+  heroDetails.textContent = `${fmt(row.time)} · ${row.sea_type || "Sea state"} · Confidence: ${row.confidence || "Unknown"}`;
+  heroMetrics.innerHTML = `
+    <div><strong>${fmt(row.planning_wave_height)}</strong><span>Planning ft</span></div>
+    <div><strong>${fmt(row.planning_period)}</strong><span>Planning sec</span></div>
+    <div><strong>${fmt(row.wind_speed_10m)}</strong><span>Wind mph</span></div>
+    <div><strong>${fmt(row.wind_gusts_10m)}</strong><span>Gust mph</span></div>`;
+}
+
+function renderAverageTable(rows) {
+  const averageTable = document.getElementById("average-table");
+  if (!averageTable) return;
+  averageTable.innerHTML = makeTable(rows, averageColumns, row => row.trip_phase ? `trip-row ${row.trip_phase.toLowerCase().replace(/\s+/g, "-")}` : "");
+}
+
+function applyTripPlanner() {
+  const rows = enrichTripPhases(lastAverageRows);
+  renderAverageTable(rows);
+  renderTripSummary(rows);
+}
+
 async function loadForecast() {
   const status = document.getElementById("status");
   const sourcesDiv = document.getElementById("sources");
@@ -397,7 +522,11 @@ async function loadForecast() {
     </article>
   `).join("");
 
-  averageTable.innerHTML = makeTable(buildAverage(results, windByTime), averageColumns);
+  lastAverageRows = buildAverage(results, windByTime);
+  const tripRows = enrichTripPhases(lastAverageRows);
+  renderHero(tripRows, lat, lon);
+  renderAverageTable(tripRows);
+  renderTripSummary(tripRows);
 }
 
 function restoreSavedInputs() {
@@ -414,10 +543,13 @@ document.querySelectorAll("button[data-lat]").forEach(button => {
   button.addEventListener("click", () => {
     document.getElementById("lat").value = button.dataset.lat;
     document.getElementById("lon").value = button.dataset.lon;
+    localStorage.setItem("marineDashboardSpotName", button.dataset.name || button.textContent.trim());
     loadForecast();
   });
 });
 
+setDefaultTripDate();
+document.getElementById("apply-trip")?.addEventListener("click", applyTripPlanner);
 restoreSavedInputs();
 loadForecast();
 

@@ -1,0 +1,3 @@
+#YY  MM DD hh mm WDIR WSPD GST WVHT DPD APD MWD PRES PTDY ATMP WTMP DEWP VIS TIDE
+#yr  mo dy hr mn degT m/s  m/s m    sec sec degT hPa  hPa  degC degC degC nmi ft
+2026 06 26 10 10 MM MM MM 0.6 3 MM 196 MM MM MM 29.2 MM MM MM

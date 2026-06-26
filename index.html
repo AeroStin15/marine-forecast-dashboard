@@ -3,18 +3,28 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Marine Forecast Consensus Dashboard</title>
+  <title>Marine Forecast</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <header>
     <div>
-      <h1>Marine Forecast Consensus Dashboard</h1>
-      <p>Compare three marine model datasets, add wind in mph when available, and average the matching hourly wave data. Runs in your browser, including on your phone.</p>
+      <h1>Marine Forecast</h1>
+      <p>Point-model consensus, real-time buoy check, and trip planner for Gulf runs.</p>
     </div>
   </header>
 
   <main>
+    <section class="app-hero card">
+      <div>
+        <span class="eyebrow">Selected spot</span>
+        <h2 id="hero-spot">Loading...</h2>
+        <div id="hero-rating" class="hero-rating">—</div>
+        <p id="hero-details">Pulling forecast...</p>
+      </div>
+      <div class="hero-metrics" id="hero-metrics"></div>
+    </section>
+
     <section class="controls card">
       <label>
         Latitude
@@ -37,15 +47,41 @@
 
     <section class="quick-locations card">
       <strong>Quick spots:</strong>
-      <button class="ghost" data-lat="30.213" data-lon="-88.970">MS Sound / Ship Island</button>
-      <button class="ghost" data-lat="30.020" data-lon="-88.950">Open Gulf South of Ship / Chandeleur Run</button>
-      <button class="ghost" data-lat="29.430" data-lon="-88.430">FH13 Area</button>
-      <button class="ghost" data-lat="29.083" data-lon="-89.250">Venice / Rigs</button>
+      <button class="ghost" data-name="MS Sound / Ship Island" data-lat="30.213" data-lon="-88.970">MS Sound / Ship Island</button>
+      <button class="ghost" data-name="Open Gulf South of Ship / Chandeleur Run" data-lat="29.960" data-lon="-88.950">Open Gulf South of Ship / Chandeleur Run</button>
+      <button class="ghost" data-name="FH13 Area" data-lat="29.430" data-lon="-88.430">FH13 Area</button>
+      <button class="ghost" data-name="Venice / Rigs" data-lat="29.083" data-lon="-89.250">Venice / Rigs</button>
     </section>
 
     <section class="card rules">
       <strong>Rating logic:</strong>
       Under 2 ft is usually <span class="mini good">Good</span> or <span class="mini fair">Fair</span>. It only gets <span class="mini caution">Caution</span> under 2 ft when the average period is under 5 seconds, sustained wind is around 15+ mph, gusts are around 22+ mph, or model disagreement is unusually bad.
+    </section>
+
+
+    <section class="card trip-card">
+      <div class="section-title">
+        <div>
+          <h2>Trip Planner Mode</h2>
+          <p>Highlight only the hours you actually care about: run out, fish, and ride home.</p>
+        </div>
+        <button id="apply-trip" class="ghost">Apply Trip</button>
+      </div>
+      <div class="trip-controls">
+        <label>Trip date<input id="trip-date" type="date" /></label>
+        <label>Leave dock<input id="trip-leave" type="time" value="05:00" /></label>
+        <label>Arrive / start fishing<input id="trip-fish-start" type="time" value="07:00" /></label>
+        <label>Start return<input id="trip-return-start" type="time" value="14:00" /></label>
+        <label>Back at dock<input id="trip-return-end" type="time" value="16:00" /></label>
+      </div>
+      <div id="trip-summary" class="trip-summary"></div>
+    </section>
+
+    <section class="card settings-card">
+      <details>
+        <summary>Settings / tuning notes</summary>
+        <p class="note">This version uses planning wave height and planning period so short wind chop cannot hide behind a smoother average period. The open Gulf Ship Island preset was moved farther south to reduce barrier island protection effects.</p>
+      </details>
     </section>
 
     <section id="status" class="status"></section>
