@@ -52,7 +52,20 @@ const sourceColumns = [
 ];
 
 const averageColumns = [
-  ...sourceColumns,
+  ["time", "Time"],
+  ["planning_wave_height", "Planning ft"],
+  ["wave_height", "Avg wave ft"],
+  ["highest_model_wave", "High model ft"],
+  ["planning_period", "Planning sec"],
+  ["wave_period", "Avg period"],
+  ["wind_wave_period", "Wind period"],
+  ["wind_speed_10m", "Wind mph"],
+  ["wind_gusts_10m", "Gust mph"],
+  ["wind_direction_10m", "Wind dir"],
+  ["wind_wave_height", "Wind wave ft"],
+  ["swell_wave_height", "Swell ft"],
+  ["swell_wave_period", "Swell period"],
+  ["sea_type", "Sea type"],
   ["wave_spread", "Model spread ft"],
   ["confidence", "Confidence"],
   ["rating", "Rating"],
@@ -67,10 +80,10 @@ function roundOrNull(value, digits = 2) {
   return value === null || value === undefined ? null : Number(value.toFixed(digits));
 }
 
-function marineRating(avgWaveFt, avgPeriodSec, spreadFt, windMph, gustMph) {
+function marineRating(avgWaveFt, planningPeriodSec, spreadFt, windMph, gustMph) {
   if (avgWaveFt === null || avgWaveFt === undefined) return "Unknown";
 
-  const period = avgPeriodSec || 0;
+  const period = planningPeriodSec || 0;
   const spread = spreadFt || 0;
   const windKnown = windMph !== null && windMph !== undefined;
   const gustKnown = gustMph !== null && gustMph !== undefined;
@@ -98,6 +111,31 @@ function marineRating(avgWaveFt, avgPeriodSec, spreadFt, windMph, gustMph) {
 
   if (spread >= 1.75 || windy) return "No-Go";
   return "No-Go";
+}
+
+function planningPeriod(avgWavePeriod, avgWindWavePeriod, avgWindWaveHeight, avgWaveHeight) {
+  const candidates = [];
+  if (avgWavePeriod !== null && avgWavePeriod !== undefined) candidates.push(avgWavePeriod);
+
+  // Wind chop controls comfort when it is a meaningful portion of total seas.
+  // This prevents a long swell period from hiding a short, stacked wind-wave period.
+  const windWaveIsMeaningful =
+    avgWindWavePeriod !== null && avgWindWavePeriod !== undefined &&
+    avgWindWaveHeight !== null && avgWindWaveHeight !== undefined &&
+    (avgWindWaveHeight >= 0.5 || (avgWaveHeight && avgWindWaveHeight >= avgWaveHeight * 0.35));
+
+  if (windWaveIsMeaningful) candidates.push(avgWindWavePeriod);
+  return candidates.length ? roundOrNull(Math.min(...candidates), 1) : null;
+}
+
+function seaType(avgWavePeriod, avgWindWavePeriod, avgWindWaveHeight, avgSwellHeight, avgWaveHeight) {
+  if (avgWindWavePeriod === null || avgWindWavePeriod === undefined) return "Unknown";
+  const windWaveIsMeaningful = avgWindWaveHeight !== null && avgWindWaveHeight !== undefined &&
+    (avgWindWaveHeight >= 0.5 || (avgWaveHeight && avgWindWaveHeight >= avgWaveHeight * 0.35));
+  if (windWaveIsMeaningful && avgWindWavePeriod < 5) return "Short chop";
+  if (windWaveIsMeaningful && avgWindWavePeriod < (avgWavePeriod || 99) - 1) return "Mixed chop";
+  if (avgSwellHeight !== null && avgSwellHeight !== undefined && avgSwellHeight > avgWindWaveHeight) return "Swell-led";
+  return "Moderate";
 }
 
 function confidenceFromSpread(spreadFt) {
@@ -269,6 +307,7 @@ function buildAverage(sourceResults, windByTime) {
     const bucket = byTime.get(time);
     const waveValues = bucket.wave_height || [];
     const waveSpread = waveValues.length ? Math.max(...waveValues) - Math.min(...waveValues) : null;
+    const highestModelWave = waveValues.length ? Math.max(...waveValues) : null;
     const avgRow = { time };
 
     for (const field of marineFields) {
@@ -281,9 +320,13 @@ function buildAverage(sourceResults, windByTime) {
     avgRow.wind_gusts_10m = roundOrNull(wind.wind_gusts_10m, 1);
     avgRow.wind_direction_10m = roundOrNull(wind.wind_direction_10m, 0);
 
+    avgRow.highest_model_wave = roundOrNull(highestModelWave);
+    avgRow.planning_wave_height = roundOrNull(Math.max(...[avgRow.wave_height, highestModelWave].filter(v => v !== null && v !== undefined)), 2);
+    avgRow.planning_period = planningPeriod(avgRow.wave_period, avgRow.wind_wave_period, avgRow.wind_wave_height, avgRow.wave_height);
+    avgRow.sea_type = seaType(avgRow.wave_period, avgRow.wind_wave_period, avgRow.wind_wave_height, avgRow.swell_wave_height, avgRow.wave_height);
     avgRow.wave_spread = roundOrNull(waveSpread);
     avgRow.confidence = confidenceFromSpread(waveSpread);
-    avgRow.rating = marineRating(avgRow.wave_height, avgRow.wave_period, waveSpread, avgRow.wind_speed_10m, avgRow.wind_gusts_10m);
+    avgRow.rating = marineRating(avgRow.planning_wave_height, avgRow.planning_period, waveSpread, avgRow.wind_speed_10m, avgRow.wind_gusts_10m);
     return avgRow;
   });
 }
@@ -349,7 +392,7 @@ async function loadForecast() {
       <h3>${src.name}</h3>
       <p class="note">${src.note}</p>
       ${src.error ? `<div class="error">${src.error}</div>` : ""}
-      <p class="note">Showing first ${Math.min(MAX_SOURCE_ROWS, src.rows.length)} hours here. The combined average below uses the full selected forecast range. Wind is pulled from Open-Meteo Weather and shown in mph.</p>
+      <p class="note">Showing first ${Math.min(MAX_SOURCE_ROWS, src.rows.length)} hours here. The combined table below uses the full selected forecast range. Wind is pulled from Open-Meteo Weather and shown in mph. The bottom table now uses a planning period that prioritizes short wind chop when it is meaningful.</p>
       <div class="table-wrap"><table>${makeTable(src.rows.slice(0, MAX_SOURCE_ROWS), sourceColumns)}</table></div>
     </article>
   `).join("");
@@ -377,3 +420,163 @@ document.querySelectorAll("button[data-lat]").forEach(button => {
 
 restoreSavedInputs();
 loadForecast();
+
+// -----------------------------
+// NOAA / NDBC real-time buoy data
+// -----------------------------
+const NDBC_STATION_ID = "42357";
+const NDBC_REALTIME_URL = `https://www.ndbc.noaa.gov/data/realtime2/${NDBC_STATION_ID}.txt`;
+const NDBC_STATION_PAGE = `https://www.ndbc.noaa.gov/station_page.php?station=${NDBC_STATION_ID}`;
+
+const buoyColumns = [
+  ["time", "Time"],
+  ["wvht_ft", "Wave ft"],
+  ["dpd_sec", "Dominant sec"],
+  ["apd_sec", "Avg sec"],
+  ["mwd_deg", "Wave dir"],
+  ["wspd_mph", "Wind mph"],
+  ["gst_mph", "Gust mph"],
+  ["wdir_deg", "Wind dir"],
+  ["wtmp_f", "Water °F"],
+  ["reality", "Reality"],
+];
+
+function metersToFeet(value) {
+  return value === null || value === undefined ? null : value * 3.28084;
+}
+
+function msToMph(value) {
+  return value === null || value === undefined ? null : value * 2.23694;
+}
+
+function cToF(value) {
+  return value === null || value === undefined ? null : (value * 9 / 5) + 32;
+}
+
+function parseNdbcNumber(value) {
+  if (value === undefined || value === null) return null;
+  const cleaned = String(value).trim();
+  if (!cleaned || cleaned === "MM" || cleaned === "999" || cleaned === "99" || cleaned === "9999") return null;
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : null;
+}
+
+async function fetchTextMaybeProxied(url) {
+  try {
+    const direct = await fetch(url, { cache: "no-store" });
+    if (direct.ok) return await direct.text();
+  } catch (_) {
+    // Some browsers block plain text NOAA/NDBC files from a static site due to CORS.
+  }
+
+  const proxiedUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+  const proxied = await fetch(proxiedUrl, { cache: "no-store" });
+  if (!proxied.ok) throw new Error(`NOAA/NDBC request failed with HTTP ${proxied.status}`);
+  return await proxied.text();
+}
+
+function parseNdbcRealtime(text) {
+  const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  if (lines.length < 3) return [];
+
+  const headerLine = lines.find(line => line.startsWith("#YY")) || lines[0];
+  const headers = headerLine.replace(/^#/, "").split(/\s+/);
+  const dataLines = lines.filter(line => !line.startsWith("#"));
+
+  return dataLines.map(line => {
+    const parts = line.split(/\s+/);
+    const rec = {};
+    headers.forEach((header, i) => { rec[header] = parts[i]; });
+
+    const yy = parseNdbcNumber(rec.YY);
+    const mm = parseNdbcNumber(rec.MM);
+    const dd = parseNdbcNumber(rec.DD);
+    const hh = parseNdbcNumber(rec.hh);
+    const min = parseNdbcNumber(rec.mm);
+    const utcDate = yy && mm && dd && hh !== null && min !== null
+      ? new Date(Date.UTC(yy, mm - 1, dd, hh, min))
+      : null;
+
+    const wvhtM = parseNdbcNumber(rec.WVHT);
+    const dpd = parseNdbcNumber(rec.DPD);
+    const apd = parseNdbcNumber(rec.APD);
+    const wspdMs = parseNdbcNumber(rec.WSPD);
+    const gstMs = parseNdbcNumber(rec.GST);
+    const wtmpC = parseNdbcNumber(rec.WTMP);
+
+    const waveFt = roundOrNull(metersToFeet(wvhtM), 1);
+    const dominantSec = roundOrNull(dpd, 1);
+    const avgSec = roundOrNull(apd, 1);
+    const windMph = roundOrNull(msToMph(wspdMs), 1);
+    const gustMph = roundOrNull(msToMph(gstMs), 1);
+
+    return {
+      time: utcDate ? utcDate.toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "—",
+      utc: utcDate,
+      wdir_deg: roundOrNull(parseNdbcNumber(rec.WDIR), 0),
+      wspd_mph: windMph,
+      gst_mph: gustMph,
+      wvht_ft: waveFt,
+      dpd_sec: dominantSec,
+      apd_sec: avgSec,
+      mwd_deg: roundOrNull(parseNdbcNumber(rec.MWD), 0),
+      wtmp_f: roundOrNull(cToF(wtmpC), 1),
+      reality: marineRating(waveFt, dominantSec || avgSec, 0, windMph, gustMph),
+    };
+  }).filter(row => row.utc instanceof Date && !Number.isNaN(row.utc.getTime()));
+}
+
+function makeBuoyTable(rows) {
+  const head = `<thead><tr>${buoyColumns.map(([, label]) => `<th>${label}</th>`).join("")}</tr></thead>`;
+  const body = `<tbody>${rows.map(row => `
+    <tr>${buoyColumns.map(([key]) => {
+      const value = row[key];
+      let shown = key === "reality" ? badge(value) : fmt(value, key);
+      if (["mwd_deg", "wdir_deg"].includes(key) && typeof value === "number") shown = `${Math.round(value)}°`;
+      return `<td>${shown}</td>`;
+    }).join("")}</tr>`).join("")}</tbody>`;
+  return head + body;
+}
+
+function buoySummaryCard(row) {
+  if (!row) return "";
+  const ageMinutes = row.utc ? Math.round((Date.now() - row.utc.getTime()) / 60000) : null;
+  const ageText = ageMinutes === null ? "unknown age" : ageMinutes < 60 ? `${ageMinutes} min old` : `${Math.round(ageMinutes / 60)} hr old`;
+  return `
+    <div class="buoy-grid">
+      <div><strong>${fmt(row.wvht_ft)}</strong><span>Wave ft</span></div>
+      <div><strong>${fmt(row.dpd_sec)}</strong><span>Dominant sec</span></div>
+      <div><strong>${fmt(row.apd_sec)}</strong><span>Average sec</span></div>
+      <div><strong>${fmt(row.wspd_mph)}</strong><span>Wind mph</span></div>
+      <div><strong>${fmt(row.gst_mph)}</strong><span>Gust mph</span></div>
+      <div><strong>${badge(row.reality)}</strong><span>Reality check</span></div>
+    </div>
+    <p class="note">Latest observation: ${row.time} · ${ageText} · <a href="${NDBC_STATION_PAGE}" target="_blank" rel="noopener">Open NDBC station page</a></p>
+  `;
+}
+
+async function loadBuoy() {
+  const status = document.getElementById("buoy-status");
+  const current = document.getElementById("buoy-current");
+  const table = document.getElementById("buoy-table");
+  if (!status || !current || !table) return;
+
+  status.textContent = `Loading NOAA/NDBC station ${NDBC_STATION_ID} real-time observations...`;
+  current.innerHTML = "";
+  table.innerHTML = "";
+
+  try {
+    const text = await fetchTextMaybeProxied(NDBC_REALTIME_URL);
+    const rows = parseNdbcRealtime(text).slice(0, 48);
+    if (!rows.length) throw new Error("No usable buoy rows were returned.");
+    current.innerHTML = buoySummaryCard(rows[0]);
+    table.innerHTML = makeBuoyTable(rows);
+    status.textContent = `Station ${NDBC_STATION_ID} loaded. Data source: NOAA/NDBC realtime text feed.`;
+  } catch (err) {
+    status.textContent = `Buoy data unavailable: ${err.message}`;
+    current.innerHTML = `<p class="error">Could not load the live buoy feed from this browser. You can still open the NDBC station page directly.</p>`;
+  }
+}
+
+document.getElementById("refresh-buoy")?.addEventListener("click", loadBuoy);
+loadBuoy();

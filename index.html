@@ -38,7 +38,7 @@
     <section class="quick-locations card">
       <strong>Quick spots:</strong>
       <button class="ghost" data-lat="30.213" data-lon="-88.970">MS Sound / Ship Island</button>
-      <button class="ghost" data-lat="30.130" data-lon="-88.950">South of Ship Island / Chandeleur Run</button>
+      <button class="ghost" data-lat="30.020" data-lon="-88.950">Open Gulf South of Ship / Chandeleur Run</button>
       <button class="ghost" data-lat="29.430" data-lon="-88.430">FH13 Area</button>
       <button class="ghost" data-lat="29.083" data-lon="-89.250">Venice / Rigs</button>
     </section>
@@ -53,6 +53,21 @@
     <section>
       <h2>Source Forecasts</h2>
       <div id="sources" class="source-grid"></div>
+    </section>
+
+    <section class="card buoy-card">
+      <div class="section-title">
+        <div>
+          <h2>Real-Time Buoy Check: 42357</h2>
+          <p>Live observations from NOAA/NDBC station 42357. This is not part of the future forecast average; it is a reality check against what the water is doing right now.</p>
+        </div>
+        <button id="refresh-buoy" class="ghost">Refresh Buoy</button>
+      </div>
+      <div id="buoy-status" class="status"></div>
+      <div id="buoy-current" class="buoy-current"></div>
+      <div class="table-wrap buoy-wrap">
+        <table id="buoy-table"></table>
+      </div>
     </section>
 
     <section class="card average-card">
