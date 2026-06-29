@@ -1,22 +1,17 @@
-# Marine Forecast Dashboard v8
+# Marine Forecast Dashboard v9
 
-Static, phone-friendly marine forecast dashboard for GitHub Pages.
+## v9 changes
+- Rebuilt rating logic so wave height dominates.
+- Waves under 1 ft stay Good unless wind/gusts are genuinely high.
+- Short period only downgrades ratings once seas are at least 1.5 ft.
+- Buoy refresh now uses cache-busting and `cache: no-store`.
+- Buoy loading attempts live NDBC first, then falls back to `data/buoy-42357.txt`.
+- GitHub Action included to update the cached buoy file every 30 minutes.
 
-## What is new in v8
+## Upload structure
+Upload the contents of this folder to the repo root:
 
-- App-style top summary card.
-- Open Gulf South of Ship preset moved farther south: `29.960, -88.950`.
-- Trip Planner Mode: highlights run-out, fishing, and return hours.
-- Real-time NOAA/NDBC buoy section for station 42357 using a GitHub Actions cache.
-- Proper repository structure with `.github/workflows/update-buoy.yml` included.
-
-## Upload instructions
-
-Upload the CONTENTS of this folder to the root of your GitHub repo, not the folder itself.
-
-Your repo should look like this:
-
-```text
+```
 index.html
 app.js
 styles.css
@@ -25,11 +20,8 @@ data/buoy-42357.txt
 .github/workflows/update-buoy.yml
 ```
 
-## GitHub Action setup
+Do not upload the outer `marine_forecast_static_v9` folder itself.
 
-1. Go to Settings > Actions > General.
-2. Under Workflow permissions, choose Read and write permissions.
-3. Go to the Actions tab.
-4. Run `Update NDBC buoy cache` once manually.
-
-After that, GitHub will update the buoy cache about every 30 minutes.
+## GitHub Actions setup
+Repository Settings → Actions → General → Workflow permissions → Read and write permissions.
+Then run the `Update NDBC buoy cache` workflow once manually.
