@@ -23,7 +23,6 @@ function init(){
   spots.forEach((s,i)=>{ const o=document.createElement('option'); o.value=i; o.textContent=s.name; $('spotSelect').appendChild(o); });
   const today = new Date(); $('tripDate').value = today.toISOString().slice(0,10);
   $('refreshBtn').addEventListener('click', loadAll);
-  $('buoyRefreshBtn').addEventListener('click', loadBuoy);
   loadAll();
 }
 
@@ -32,7 +31,7 @@ async function loadAll(){
   const days = Math.max(1, Math.min(8, +$('daysInput').value || 4));
   $('updatedText').textContent = 'Loading forecast...';
   try{
-    const [forecast] = await Promise.all([loadForecast(spot, days), loadBuoy()]);
+    const forecast = await loadForecast(spot, days);
     renderForecast(forecast, spot);
     $('updatedText').textContent = `Updated ${new Date().toLocaleString()} for ${spot.lat.toFixed(3)}, ${spot.lon.toFixed(3)}`;
   }catch(e){
@@ -185,50 +184,4 @@ function renderTrip(rows){
 }
 function fmtTime(t){return new Date(t).toLocaleString([], {weekday:'short', month:'numeric', day:'numeric', hour:'numeric'});}
 
-async function loadBuoy(){
-  $('buoyStatus').textContent='Loading buoy...';
-  const stamp=Date.now();
-  const urls=[
-    `https://www.ndbc.noaa.gov/data/realtime2/42357.txt?cb=${stamp}`,
-    `data/buoy-42357.txt?cb=${stamp}`
-  ];
-  let text='', source='';
-  for(const url of urls){
-    try{ const r=await fetch(url,{cache:'no-store'}); if(r.ok){ text=await r.text(); source=url.startsWith('http')?'live NDBC':'cached GitHub'; break; } }catch(e){/* try next */}
-  }
-  if(!text){ $('buoyStatus').textContent='Buoy unavailable. Direct NDBC may be blocked and no cached file was found.'; return; }
-  const parsed=parseNdbc(text);
-  if(!parsed){ $('buoyStatus').textContent=`Could not parse buoy file from ${source}.`; return; }
-  const rating=rateSea(parsed.wvhtFt, parsed.dpd, parsed.wspdMph, parsed.gstMph);
-  $('buoyStatus').textContent=`Latest buoy row from ${source}: ${parsed.timeLabel}`;
-  $('buoyGrid').innerHTML=`
-    <div><span class="label">Rating</span><strong class="rating-${rating.ratingClass}">${rating.rating}</strong></div>
-    <div><span class="label">Wave</span><strong>${round(parsed.wvhtFt)} ft</strong></div>
-    <div><span class="label">Dominant period</span><strong>${round(parsed.dpd)} sec</strong></div>
-    <div><span class="label">Avg period</span><strong>${round(parsed.apd)} sec</strong></div>
-    <div><span class="label">Wind</span><strong>${round(parsed.wspdMph,0)} mph</strong></div>
-    <div><span class="label">Gust</span><strong>${round(parsed.gstMph,0)} mph</strong></div>
-    <div><span class="label">Wave dir</span><strong>${round(parsed.mwd,0)}°</strong></div>
-    <div><span class="label">Water temp</span><strong>${round(parsed.wtmpF,0)}°F</strong></div>`;
-}
-function parseNdbc(text){
-  const lines=text.trim().split(/\r?\n/).filter(Boolean);
-  if(lines.length<3) return null;
-  const headers=lines[0].replace(/^#\s*/,'').trim().split(/\s+/);
-  const row=lines.find(l=>!l.startsWith('#'));
-  if(!row) return null;
-  const vals=row.trim().split(/\s+/);
-  const o={}; headers.forEach((h,i)=>o[h]=vals[i]);
-  const num=k=>{const v=parseFloat(o[k]); return v===99||v===999||v===9999?NaN:v;};
-  const yy=o.YY, mm=o.MM, dd=o.DD, hh=o.hh, min=o.mm;
-  const date = yy ? new Date(Date.UTC(+yy,+mm-1,+dd,+hh,+min)) : null;
-  const wvhtM=num('WVHT'), wspd=num('WSPD'), gst=num('GST'), wtmpC=num('WTMP');
-  return {
-    timeLabel: date ? date.toLocaleString([], {month:'numeric', day:'numeric', hour:'numeric', minute:'2-digit'})+' UTC row' : 'latest',
-    wvhtFt: wvhtM*FT_PER_M,
-    dpd:num('DPD'), apd:num('APD'), mwd:num('MWD'),
-    wspdMph:wspd*MS_TO_MPH, gstMph:gst*MS_TO_MPH,
-    wtmpF:Number.isFinite(wtmpC)?(wtmpC*9/5+32):NaN
-  };
-}
 init();

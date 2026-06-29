@@ -10,9 +10,9 @@
   <header class="app-header">
     <div>
       <h1>Marine Forecast</h1>
-      <p class="muted">Point forecast + planning sea state + real-time buoy check</p>
+      <p class="muted">Point forecast + trip planner + quick pre-trip links</p>
     </div>
-    <div class="version">v9</div>
+    <div class="version">v10</div>
   </header>
 
   <main class="container">
@@ -49,13 +49,27 @@
       <div class="table-wrap short"><table id="tripTable"></table></div>
     </section>
 
-    <section class="card buoy">
-      <div class="section-head">
-        <div><h2>Real-Time Buoy Check</h2><p class="muted">NDBC 42357 — live attempt first, cached fallback second</p></div>
-        <button id="buoyRefreshBtn">Refresh Buoy</button>
+    <section class="card before-go">
+      <h2>Before You Go</h2>
+      <p class="muted">One-tap checks for the live sources that are better opened directly instead of fighting browser/API issues.</p>
+      <div class="link-grid">
+        <a class="quick-link" href="https://www.ndbc.noaa.gov/station_page.php?station=42357" target="_blank" rel="noopener">
+          <span class="link-title">NOAA Buoy 42357</span>
+          <span class="link-sub">Live DISL Spotter station page</span>
+        </a>
+        <a class="quick-link" href="https://www.ndbc.noaa.gov/data/realtime2/42357.spec" target="_blank" rel="noopener">
+          <span class="link-title">Raw Wave Data</span>
+          <span class="link-sub">Direct NDBC spectral/wave file</span>
+        </a>
+        <a class="quick-link" href="https://www.weather.gov/mob/marine" target="_blank" rel="noopener">
+          <span class="link-title">NOAA Marine Forecast</span>
+          <span class="link-sub">Mobile/Pensacola marine page</span>
+        </a>
+        <a class="quick-link" href="https://marine.weather.gov/MapClick.php?lon=-88.95&lat=29.96" target="_blank" rel="noopener">
+          <span class="link-title">Point Marine Forecast</span>
+          <span class="link-sub">Open Gulf point near Ship Island</span>
+        </a>
       </div>
-      <div id="buoyStatus" class="muted">Not loaded yet.</div>
-      <div class="summary-grid compact" id="buoyGrid"></div>
     </section>
 
     <section class="card">

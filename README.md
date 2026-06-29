@@ -1,27 +1,24 @@
-# Marine Forecast Dashboard v9
+# Marine Forecast Dashboard v10
 
-## v9 changes
-- Rebuilt rating logic so wave height dominates.
-- Waves under 1 ft stay Good unless wind/gusts are genuinely high.
-- Short period only downgrades ratings once seas are at least 1.5 ft.
-- Buoy refresh now uses cache-busting and `cache: no-store`.
-- Buoy loading attempts live NDBC first, then falls back to `data/buoy-42357.txt`.
-- GitHub Action included to update the cached buoy file every 30 minutes.
+Simple mobile-first marine forecast dashboard.
 
-## Upload structure
-Upload the contents of this folder to the repo root:
+## What changed in v10
 
-```
-index.html
-app.js
-styles.css
-README.md
-data/buoy-42357.txt
-.github/workflows/update-buoy.yml
-```
+- Keeps the cleaner v9 UI and rating logic.
+- Removes the embedded buoy fetch that was unreliable on GitHub Pages/mobile browsers.
+- Adds a **Before You Go** link section instead:
+  - NOAA Buoy 42357 station page
+  - NDBC raw wave data
+  - NOAA Mobile/Pensacola marine forecast page
+  - Point marine forecast near the open Gulf / Ship Island preset
 
-Do not upload the outer `marine_forecast_static_v9` folder itself.
+## Upload
 
-## GitHub Actions setup
-Repository Settings → Actions → General → Workflow permissions → Read and write permissions.
-Then run the `Update NDBC buoy cache` workflow once manually.
+Upload the contents of this folder to the root of your GitHub repository:
+
+- `index.html`
+- `app.js`
+- `styles.css`
+- `README.md`
+
+You can leave old `data/` and `.github/workflows/` files in the repo, but they are no longer used by the dashboard.
